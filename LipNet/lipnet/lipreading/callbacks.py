@@ -74,8 +74,8 @@ class Statistics(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs={}):
         stats = self.get_statistics(self.num_samples_stats)
 
-        print('\n\n[Epoch %d] Out of %d samples: [CER: %.3f - %.3f] [WER: %.3f - %.3f] [BLEU: %.3f - %.3f]\n'
-              % (epoch, stats['samples'], stats['cer'][0], stats['cer'][1], stats['wer'][0], stats['wer'][1], stats['bleu'][0], stats['bleu'][1]))
+        print(('\n\n[Epoch %d] Out of %d samples: [CER: %.3f - %.3f] [WER: %.3f - %.3f] [BLEU: %.3f - %.3f]\n'
+              % (epoch, stats['samples'], stats['cer'][0], stats['cer'][1], stats['wer'][0], stats['wer'][1], stats['bleu'][0], stats['bleu'][1])))
 
         if self.output_dir is not None:
             with open(os.path.join(self.output_dir, 'stats.csv'), 'ab') as csvfile:
