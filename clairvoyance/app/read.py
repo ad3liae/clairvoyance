@@ -40,19 +40,19 @@ class LipReadingTask:
 
     async def do(self):
         while True:
-            video = await asyncio.get_event_loop().run_in_executor(None, self._q.get)
-            if video is not None:
+            speaker = await asyncio.get_event_loop().run_in_executor(None, self._q.get)
+            if speaker is not None:
                 if K.image_data_format() == 'channels_first':
-                    img_c, frames_n, img_w, img_h = video.data.shape
+                    img_c, frames_n, img_w, img_h = speaker.video.data.shape
                 else:
-                    frames_n, img_w, img_h, img_c = video.data.shape
+                    frames_n, img_w, img_h, img_c = speaker.video.data.shape
 
-                X_data       = np.array([video.data]).astype(np.float32) / 255
-                input_length = np.array([len(video.data)])
+                X_data       = np.array([speaker.video.data]).astype(np.float32) / 255
+                input_length = np.array([len(speaker.video.data)])
 
                 y_pred         = self.lipnet(c=img_c, w=img_w, h=img_h, n=frames_n).predict(X_data)
                 result         = self.decoder().decode(y_pred, input_length)[0]
 
-                print("{}: {}".format('Speaker 0', result))
+                print("{}: {}".format(speaker.identity, result))
             else:
                 break

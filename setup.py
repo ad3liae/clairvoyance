@@ -28,6 +28,8 @@ setup(
   include_package_data=True,
   zip_safe=False,
   install_requires=[
+      'attrs',
+
       # LipNet
       'Keras==2.0.2',
       'editdistance==0.3.1',

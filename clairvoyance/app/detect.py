@@ -4,19 +4,12 @@ import random
 from lipnet.lipreading.videos import Video
 import sys
 import os
+import functools
+
+from clairvoyance.core import Speaker
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 FACE_PREDICTOR_PATH = os.path.join(CURRENT_PATH,'..','..','LipNet','common','predictors','shape_predictor_68_face_landmarks.dat')
-
-if __name__ == '__main__':
-    if len(sys.argv) == 3:
-        video, result = predict(sys.argv[1], sys.argv[2])
-    elif len(sys.argv) == 4:
-        video, result = predict(sys.argv[1], sys.argv[2], sys.argv[3])
-    elif len(sys.argv) == 5:
-        video, result = predict(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-    else:
-        video, result = None, ""
 
 class FaceRecognitionTask:
     def __init__(self, q):
@@ -32,4 +25,4 @@ class FaceRecognitionTask:
             else:
                 video.from_frames(video_path)
             print("Data loaded.")
-            await asyncio.get_event_loop().run_in_executor(None, self._q.put, video)
+            await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
