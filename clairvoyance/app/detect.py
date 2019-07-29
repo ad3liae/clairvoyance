@@ -32,13 +32,13 @@ class FaceRecognitionTask:
         self._q = q
 
     async def do(self, video_path):
-        print("\nLoading data from disk...")
-        video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH)
-        if os.path.isfile(video_path):
-            video.from_video(video_path)
-        else:
-            video.from_frames(video_path)
-        print("Data loaded.\n")
         for i in range(1000):
             print("Sending batch #{}\n".format(i))
+            print("\nLoading data from disk...")
+            video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH)
+            if os.path.isfile(video_path):
+                video.from_video(video_path)
+            else:
+                video.from_frames(video_path)
+            print("Data loaded.\n")
             await asyncio.get_event_loop().run_in_executor(None, self._q.put, video)
