@@ -42,6 +42,7 @@ class LipReadingTask:
         while True:
             speaker = await asyncio.get_event_loop().run_in_executor(None, self._q.get)
             if speaker is not None:
+                print("{}: (detecting)".format(speaker.identity))
                 if K.image_data_format() == 'channels_first':
                     img_c, frames_n, img_w, img_h = speaker.video.data.shape
                 else:
