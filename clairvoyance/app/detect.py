@@ -24,5 +24,5 @@ class FaceRecognitionTask:
                 video.from_video(video_path)
             else:
                 video.from_frames(video_path)
-            print("Data loaded.")
+            print("Data loaded ({}).".format(video.data.shape))
             await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
