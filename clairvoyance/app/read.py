@@ -15,10 +15,16 @@ CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 PREDICT_GREEDY      = False
 PREDICT_BEAM_WIDTH  = 200
-PREDICT_DICTIONARY  = os.path.join(CURRENT_PATH,'..','..','LipNet','common','dictionaries','grid.txt')
+#PREDICT_DICTIONARY  = os.path.join(CURRENT_PATH,'..','..','LipNet','common','dictionaries','grid.txt')
+PREDICT_DICTIONARY  = os.path.join(CURRENT_PATH,'..','..','LipNet','common','dictionaries','big.txt')
 WEIGHT_PATH = os.path.join(CURRENT_PATH,'..','..','LipNet','evaluation','models', 'overlapped-weights368.h5')
 
 class LipReadingTask:
+    IMAGE_WIDTH = 100
+    IMAGE_HEIGHT = 50
+    IMAGE_CHANNELS = 3
+    FRAMES = 75
+
     def __init__(self, q):
         self._q = q
 
@@ -38,7 +44,11 @@ class LipReadingTask:
         lipnet.model.load_weights(WEIGHT_PATH)
         return lipnet
 
+    def _warmup(self):
+        self.lipnet(c=self.IMAGE_CHANNELS, w=self.IMAGE_WIDTH, h=self.IMAGE_HEIGHT, n=self.FRAMES)
+
     async def do(self):
+        self._warmup()
         while True:
             speaker = await asyncio.get_event_loop().run_in_executor(None, self._q.get)
             if speaker is not None:
@@ -47,6 +57,8 @@ class LipReadingTask:
                     img_c, frames_n, img_w, img_h = speaker.video.data.shape
                 else:
                     frames_n, img_w, img_h, img_c = speaker.video.data.shape
+
+                assert (self.IMAGE_WIDTH, self.IMAGE_HEIGHT, self.IMAGE_CHANNELS, self.FRAMES) == (img_w, img_h, img_c, frames_n)
 
                 X_data       = np.array([speaker.video.data]).astype(np.float32) / 255
                 input_length = np.array([len(speaker.video.data)])
