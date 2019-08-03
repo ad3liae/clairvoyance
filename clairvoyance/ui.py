@@ -1,5 +1,8 @@
 def shell():
     import sys
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+
     fn = sys.argv[1]
     Session(fn).invoke()
 

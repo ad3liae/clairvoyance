@@ -21,7 +21,7 @@ class LipNet(object):
 
     def build(self):
         if K.image_data_format() == 'channels_first':
-            input_shape = (self.img_c, self.frames_n, self.img_w, self.img_h)
+            input_shape = (self.frames_n, self.img_c, self.img_w, self.img_h)
         else:
             input_shape = (self.frames_n, self.img_w, self.img_h, self.img_c)
 
