@@ -8,6 +8,7 @@ import math
 import time
 import logging
 
+import cv2
 import numpy as np
 import skvideo.io
 from lipnet.lipreading.videos import Video
@@ -32,7 +33,17 @@ class FaceRecognitionTask:
             video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH)
             video.from_array(block)
             self._log.info("Data loaded ({}, {:.02f} sec.).".format(video.data.shape, time.time() - began_at))
-            await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
+            await asyncio.gather(
+                self._preview(dec, block),
+                asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
+            )
+        cv2.destroyAllWindows()
+
+    async def _preview(self, dec, block):
+        for frame in block:
+            cv2.imshow('Video', cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            cv2.waitKey(int(1000/dec._framerate()))
+
 
 class VideoDecoder:
     def __init__(self, video_path):
