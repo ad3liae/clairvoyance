@@ -1,7 +1,7 @@
 def shell():
     import sys
     import logging
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     fn = sys.argv[1]
     Session(fn).invoke()

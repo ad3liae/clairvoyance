@@ -1,9 +1,12 @@
+import math
+import time
 import os
 import numpy as np
 from keras import backend as K
 from scipy import ndimage
 from scipy.misc import imresize
 import skvideo.io
+import cv2
 import dlib
 from lipnet.lipreading.aligns import Align
 
@@ -104,24 +107,29 @@ class VideoAugmenter(object):
 
 
 class Video(object):
-    def __init__(self, vtype='mouth', face_predictor_path=None):
+    def __init__(self, vtype='mouth', face_predictor_path=None, preview=False):
         if vtype == 'face' and face_predictor_path is None:
             raise AttributeError('Face video need to be accompanied with face predictor')
         self.face_predictor_path = face_predictor_path
         self.vtype = vtype
+        self.preview = preview
+        self.framerate = None
 
-    def from_frames(self, path):
+    def from_frames(self, path, framerate=25):
+        self.framerate = framerate
         frames_path = sorted([os.path.join(path, x) for x in os.listdir(path)])
         frames = [ndimage.imread(frame_path) for frame_path in frames_path]
         self.handle_type(frames)
         return self
 
     def from_video(self, path):
+        self.framerate = self.get_frame_rate(path)
         frames = self.get_video_frames(path)
         self.handle_type(frames)
         return self
 
-    def from_array(self, frames):
+    def from_array(self, frames, framerate=25):
+        self.framerate = framerate
         self.handle_type(frames)
         return self
 
@@ -136,13 +144,29 @@ class Video(object):
     def get_frames_mouth(self, detector, predictor, frames):
         return self.mouth_frames_of_a_face(detector, predictor, frames)
 
+    def get_frame_rate(self, path):
+        frtxt = skvideo.io.ffprobe(path)['video']['@r_frame_rate']
+        s = frtxt.split('/')
+        if len(s) > 1:
+            return float(s[0])/float(s[1])
+        else:
+            return float(s[0])
+
     def mouth_frames_of_a_face(self, detector, predictor, frames):
+        frameskip = 0
         mouth_frames = []
         for frame in frames:
+            if frameskip:
+                frameskip = max(0, frameskip - 1)
+            began_at = time.time()
+            if self.preview and not frameskip:
+                showframe = frame.copy()
             dets = detector(frame, 1)
             shape = None
             for k, d in enumerate(dets):
                 shape = predictor(frame, d)
+                if self.preview and not frameskip:
+                    cv2.rectangle(showframe, (shape.rect.tl_corner().x, shape.rect.tl_corner().y), (shape.rect.br_corner().x, shape.rect.br_corner().y), (255,0,0), 2)
             if shape is None: # Detector doesn't detect face, interpolate with the last frame
                 try:
                     mouth_frames.append(mouth_frames[-1])
@@ -150,6 +174,14 @@ class Video(object):
                     raise NotImplementedError()
             else:
                 mouth_frames.append(self.mouth_frame_of_face_shaped(shape, frame))
+            elapsed = time.time() - began_at
+            if self.preview and not frameskip:
+                deadline = 1000/self.framerate
+                slack = int(deadline - elapsed*1000)
+                if slack < 0:
+                    frameskip = math.ceil(-slack / deadline)
+                cv2.imshow('Video', cv2.cvtColor(showframe, cv2.COLOR_RGB2BGR))
+                cv2.waitKey(max(1, slack))
         return mouth_frames
 
     def mouth_frame_of_face_shaped(self, shape, frame):

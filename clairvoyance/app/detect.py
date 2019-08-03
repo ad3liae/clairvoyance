@@ -27,23 +27,14 @@ class FaceRecognitionTask:
         dec = VideoDecoder(video_path)
         total = dec.num_blocks()
         for nr,block in dec.decoded_blocks():
-            self._log.info("Sending batch #{} (of {})".format(nr, total))
-            self._log.info("Loading data from disk...")
+            self._log.debug("Sending batch #{} (of {})".format(nr, total))
+            self._log.debug("Loading data from disk...")
             began_at = time.time()
-            video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH)
-            video.from_array(block)
-            self._log.info("Data loaded ({}, {:.02f} sec.).".format(video.data.shape, time.time() - began_at))
-            await asyncio.gather(
-                self._preview(dec, block),
-                asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
-            )
+            video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH, preview=True)
+            video.from_array(block, framerate=dec._framerate())
+            self._log.debug("Data loaded ({}, {:.02f} sec.).".format(video.data.shape, time.time() - began_at))
+            await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
         cv2.destroyAllWindows()
-
-    async def _preview(self, dec, block):
-        for frame in block:
-            cv2.imshow('Video', cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-            cv2.waitKey(int(1000/dec._framerate()))
-
 
 class VideoDecoder:
     def __init__(self, video_path):
