@@ -1,11 +1,16 @@
+import math
+import time
 import os
 import numpy as np
 from keras import backend as K
 from scipy import ndimage
 from scipy.misc import imresize
 import skvideo.io
+import cv2
 import dlib
 from lipnet.lipreading.aligns import Align
+
+import face_recognition
 
 class VideoAugmenter(object):
     @staticmethod
@@ -102,26 +107,32 @@ class VideoAugmenter(object):
         _video.set_data(_video.mouth)
         return _video
 
-
 class Video(object):
-    def __init__(self, vtype='mouth', face_predictor_path=None):
+    def __init__(self, vtype='mouth', face_predictor_path=None, preview=False):
         if vtype == 'face' and face_predictor_path is None:
             raise AttributeError('Face video need to be accompanied with face predictor')
         self.face_predictor_path = face_predictor_path
         self.vtype = vtype
+        self.preview = preview
+        self.framerate = None
+        self.known_face_encodings = []
+        self.known_face_names = []
 
-    def from_frames(self, path):
+    def from_frames(self, path, framerate=25):
+        self.framerate = framerate
         frames_path = sorted([os.path.join(path, x) for x in os.listdir(path)])
         frames = [ndimage.imread(frame_path) for frame_path in frames_path]
         self.handle_type(frames)
         return self
 
     def from_video(self, path):
+        self.framerate = self.get_frame_rate(path)
         frames = self.get_video_frames(path)
         self.handle_type(frames)
         return self
 
-    def from_array(self, frames):
+    def from_array(self, frames, framerate=25):
+        self.framerate = framerate
         self.handle_type(frames)
         return self
 
@@ -136,13 +147,47 @@ class Video(object):
     def get_frames_mouth(self, detector, predictor, frames):
         return self.mouth_frames_of_a_face(detector, predictor, frames)
 
+    def get_frame_rate(self, path):
+        frtxt = skvideo.io.ffprobe(path)['video']['@r_frame_rate']
+        s = frtxt.split('/')
+        if len(s) > 1:
+            return float(s[0])/float(s[1])
+        else:
+            return float(s[0])
+
     def mouth_frames_of_a_face(self, detector, predictor, frames):
+        frameskip = 0
         mouth_frames = []
-        for frame in frames:
+        known_as = dict()
+        for nr, frame in enumerate(frames):
+            if frameskip:
+                frameskip = max(0, frameskip - 1)
+            began_at = time.time()
+            if self.preview and not frameskip:
+                showframe = frame.copy()
             dets = detector(frame, 1)
             shape = None
             for k, d in enumerate(dets):
                 shape = predictor(frame, d)
+
+                if nr % 2 == 0:
+                    face_encoding = face_recognition.face_encodings(frame, [(shape.rect.left(), shape.rect.top(), shape.rect.right(), shape.rect.bottom())])[0]
+                    if self.known_face_encodings:
+                        face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
+                        best_match_index = np.argmin(face_distances)
+                        if face_distances[best_match_index] <= 0.6:
+                            known_as[k] = self.known_face_names[best_match_index]
+
+                    if k not in known_as:
+                        self.known_face_encodings.append(face_encoding)
+                        self.known_face_names.append("known_{}".format(len(self.known_face_names)))
+
+                if self.preview and not frameskip:
+                    cv2.rectangle(showframe, (shape.rect.left(), shape.rect.top()), (shape.rect.right(), shape.rect.bottom()), (255,0,0), 2)
+                    cv2.rectangle(showframe, (shape.rect.left(), shape.rect.bottom() - 17), (shape.rect.right(), shape.rect.bottom()), (255, 0, 0), cv2.FILLED)
+                    font = cv2.FONT_HERSHEY_DUPLEX
+                    cv2.putText(showframe, known_as[k] if k in known_as else 'Unknown', (shape.rect.left() + 3, shape.rect.bottom() - 3), font, 0.5, (255, 255, 255), 1)
+
             if shape is None: # Detector doesn't detect face, interpolate with the last frame
                 try:
                     mouth_frames.append(mouth_frames[-1])
@@ -150,6 +195,14 @@ class Video(object):
                     raise NotImplementedError()
             else:
                 mouth_frames.append(self.mouth_frame_of_face_shaped(shape, frame))
+            elapsed = time.time() - began_at
+            if self.preview and not frameskip:
+                deadline = 1000/self.framerate
+                slack = int(deadline - elapsed*1000)
+                if slack < 0:
+                    frameskip = math.ceil(-slack / deadline)
+                cv2.imshow('Video', cv2.cvtColor(showframe, cv2.COLOR_RGB2BGR))
+                cv2.waitKey(max(1, slack))
         return mouth_frames
 
     def mouth_frame_of_face_shaped(self, shape, frame):

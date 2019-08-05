@@ -2,6 +2,9 @@ import asyncio
 import random
 import functools
 import os
+import logging
+import time
+import sys
 
 from lipnet.core.decoders import Decoder
 from lipnet.lipreading.helpers import labels_to_text
@@ -23,10 +26,11 @@ class LipReadingTask:
     IMAGE_WIDTH = 100
     IMAGE_HEIGHT = 50
     IMAGE_CHANNELS = 3
-    FRAMES = 75
+    FRAMES = 256
 
     def __init__(self, q):
         self._q = q
+        self._log = logging.getLogger(self.__class__.__name__)
 
     @functools.lru_cache(maxsize=1)
     def decoder(self):
@@ -48,17 +52,21 @@ class LipReadingTask:
         self.lipnet(c=self.IMAGE_CHANNELS, w=self.IMAGE_WIDTH, h=self.IMAGE_HEIGHT, n=self.FRAMES)
 
     async def do(self):
+        began_at = time.time()
+        self._log.debug('warming up...')
         self._warmup()
+        self._log.debug('done ({:.02f} sec).'.format(time.time() - began_at))
         while True:
             speaker = await asyncio.get_event_loop().run_in_executor(None, self._q.get)
             if speaker is not None:
-                print("{}: (detecting)".format(speaker.identity))
+                sys.stdout.write("{}: (detecting)".format(speaker.identity))
+                began_at = time.time()
                 if K.image_data_format() == 'channels_first':
                     img_c, frames_n, img_w, img_h = speaker.video.data.shape
                 else:
                     frames_n, img_w, img_h, img_c = speaker.video.data.shape
 
-                assert (self.IMAGE_WIDTH, self.IMAGE_HEIGHT, self.IMAGE_CHANNELS, self.FRAMES) == (img_w, img_h, img_c, frames_n)
+                assert (self.IMAGE_WIDTH, self.IMAGE_HEIGHT, self.IMAGE_CHANNELS) == (img_w, img_h, img_c)
 
                 X_data       = np.array([speaker.video.data]).astype(np.float32) / 255
                 input_length = np.array([len(speaker.video.data)])
@@ -66,6 +74,6 @@ class LipReadingTask:
                 y_pred         = self.lipnet(c=img_c, w=img_w, h=img_h, n=frames_n).predict(X_data)
                 result         = self.decoder().decode(y_pred, input_length)[0]
 
-                print("{}: {}".format(speaker.identity, result))
+                sys.stdout.write("\r{}: {} ({:.02f} sec)\n".format(speaker.identity, result, time.time() - began_at))
             else:
                 break

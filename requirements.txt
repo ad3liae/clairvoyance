@@ -1,4 +1,6 @@
 attrs
+face_recognition
+opencv-python
 
 # LipNet
 -e LipNet

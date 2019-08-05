@@ -5,7 +5,10 @@ import sys
 import os
 import functools
 import math
+import time
+import logging
 
+import cv2
 import numpy as np
 import skvideo.io
 from lipnet.lipreading.videos import Video
@@ -18,17 +21,20 @@ FACE_PREDICTOR_PATH = os.path.join(CURRENT_PATH,'..','..','LipNet','common','pre
 class FaceRecognitionTask:
     def __init__(self, q):
         self._q = q
+        self._log = logging.getLogger(self.__class__.__name__)
 
     async def do(self, video_path):
         dec = VideoDecoder(video_path)
         total = dec.num_blocks()
         for nr,block in dec.decoded_blocks():
-            print("Sending batch #{} (of {})".format(nr, total))
-            print("Loading data from disk...")
-            video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH)
-            video.from_array(block)
-            print("Data loaded ({}).".format(video.data.shape))
+            self._log.debug("Sending batch #{} (of {})".format(nr, total))
+            self._log.debug("Loading data from disk...")
+            began_at = time.time()
+            video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH, preview=True)
+            video.from_array(block, framerate=dec._framerate())
+            self._log.debug("Data loaded ({}, {:.02f} sec.).".format(video.data.shape, time.time() - began_at))
             await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
+        cv2.destroyAllWindows()
 
 class VideoDecoder:
     def __init__(self, video_path):

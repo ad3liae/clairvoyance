@@ -29,6 +29,8 @@ setup(
   zip_safe=False,
   install_requires=[
       'attrs',
+      'face_recognition',
+      'opencv-python',
 
       # LipNet
       'Keras==2.0.2',

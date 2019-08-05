@@ -1,7 +1,56 @@
 def shell():
     import sys
-    fn = sys.argv[1]
-    Session(fn).invoke()
+    import logging
+    import getopt
+    from clairvoyance.core import Config
+
+    config = Config()
+    opts, fns = getopt.gnu_getopt(sys.argv[1:], '', ['help', 'debug', 'show-frame', 'framerate=', 'face-updates=', 'face-detector='])
+    for o,a in opts:
+        if o in ['--help']:
+            config.help = True
+        if o in ['--debug']:
+            config.debug = True
+        if o in ['--show-frame']:
+            config.show_frame = True
+        if o in ['--framerate']:
+            config.framerate = float(a)
+        if o in ['--face-updates']:
+            config.face_updates = int(a)
+        if o in ['--face-detector']:
+            config.face_detector = a
+
+    logging.basicConfig(level=logging.DEBUG if config.debug else logging.INFO)
+
+    if not config.help and fns:
+        Session(fns[0]).invoke()
+    else:
+        print(help(), file=sys.stderr)
+
+def help():
+    import sys
+
+    def opt(o, d):
+        return r'  {{:{0}s}}{{}}'.format(12).format(o, d)
+
+    return '\n'.join([
+        version(),
+        '',
+        'usage: {} [options] <stream>'.format(sys.argv[0]),
+        '',
+        'OPTIONS',
+        '',
+        opt('--help', 'Shows this message'),
+        opt('--debug', 'Shows debug message'),
+    ])
+
+def version():
+    import pkg_resources
+    return '\n'.join([
+        'Clairvoyance {}: concurrent lip-reader for the smart masses'.format(pkg_resources.get_distribution('clairvoyance').version),
+        'Copyright (C) 2019 Ken-ya and Takahiro Yoshimura.  All rights reserved.',
+        'Licensed under the terms of GNU General Public License Version 3 or later.',
+    ])
 
 class Session:
     def __init__(self, fn):
