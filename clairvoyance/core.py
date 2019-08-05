@@ -14,3 +14,4 @@ class Config:
     framerate = attr.ib(default=25)
     face_updates = attr.ib(default=5)
     face_detector = attr.ib(default='hog')
+    face_detect_subsample = attr.ib(default=2)
