@@ -7,6 +7,7 @@ class Speaker:
 
 @attr.s
 class Config:
+    targets = attr.ib()
     help = attr.ib(default=False)
     debug = attr.ib(default=False)
     show_frame = attr.ib(default=False)

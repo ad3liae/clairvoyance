@@ -28,7 +28,8 @@ class LipReadingTask:
     IMAGE_CHANNELS = 3
     FRAMES = 256
 
-    def __init__(self, q):
+    def __init__(self, config, q):
+        self._config = config
         self._q = q
         self._log = logging.getLogger(self.__class__.__name__)
 
