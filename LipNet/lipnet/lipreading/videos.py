@@ -10,6 +10,8 @@ import cv2
 import dlib
 from lipnet.lipreading.aligns import Align
 
+import face_recognition
+
 class VideoAugmenter(object):
     @staticmethod
     def split_words(video, align):
@@ -105,7 +107,6 @@ class VideoAugmenter(object):
         _video.set_data(_video.mouth)
         return _video
 
-
 class Video(object):
     def __init__(self, vtype='mouth', face_predictor_path=None, preview=False):
         if vtype == 'face' and face_predictor_path is None:
@@ -114,6 +115,8 @@ class Video(object):
         self.vtype = vtype
         self.preview = preview
         self.framerate = None
+        self.known_face_encodings = []
+        self.known_face_names = []
 
     def from_frames(self, path, framerate=25):
         self.framerate = framerate
@@ -155,7 +158,8 @@ class Video(object):
     def mouth_frames_of_a_face(self, detector, predictor, frames):
         frameskip = 0
         mouth_frames = []
-        for frame in frames:
+        known_as = dict()
+        for nr, frame in enumerate(frames):
             if frameskip:
                 frameskip = max(0, frameskip - 1)
             began_at = time.time()
@@ -165,8 +169,25 @@ class Video(object):
             shape = None
             for k, d in enumerate(dets):
                 shape = predictor(frame, d)
+
+                if nr % 2 == 0:
+                    face_encoding = face_recognition.face_encodings(frame, [(shape.rect.left(), shape.rect.top(), shape.rect.right(), shape.rect.bottom())])[0]
+                    if self.known_face_encodings:
+                        face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
+                        best_match_index = np.argmin(face_distances)
+                        if face_distances[best_match_index] <= 0.6:
+                            known_as[k] = self.known_face_names[best_match_index]
+
+                    if k not in known_as:
+                        self.known_face_encodings.append(face_encoding)
+                        self.known_face_names.append("known_{}".format(len(self.known_face_names)))
+
                 if self.preview and not frameskip:
-                    cv2.rectangle(showframe, (shape.rect.tl_corner().x, shape.rect.tl_corner().y), (shape.rect.br_corner().x, shape.rect.br_corner().y), (255,0,0), 2)
+                    cv2.rectangle(showframe, (shape.rect.left(), shape.rect.top()), (shape.rect.right(), shape.rect.bottom()), (255,0,0), 2)
+                    cv2.rectangle(showframe, (shape.rect.left(), shape.rect.bottom() - 17), (shape.rect.right(), shape.rect.bottom()), (255, 0, 0), cv2.FILLED)
+                    font = cv2.FONT_HERSHEY_DUPLEX
+                    cv2.putText(showframe, known_as[k] if k in known_as else 'Unknown', (shape.rect.left() + 3, shape.rect.bottom() - 3), font, 0.5, (255, 255, 255), 1)
+
             if shape is None: # Detector doesn't detect face, interpolate with the last frame
                 try:
                     mouth_frames.append(mouth_frames[-1])
