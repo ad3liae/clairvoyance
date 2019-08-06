@@ -109,7 +109,7 @@ class VideoAugmenter(object):
         return _video
 
 class Video(object):
-    def __init__(self, vtype='mouth', face_predictor_path=None, preview=False, face_detector_type='hog'):
+    def __init__(self, vtype='mouth', face_predictor_path=None, preview=False, face_detector_type='hog', face_detect_subsample=2, face_updates=5):
         if vtype == 'face' and face_predictor_path is None:
             raise AttributeError('Face video need to be accompanied with face predictor')
         self.face_predictor_path = face_predictor_path
@@ -119,6 +119,8 @@ class Video(object):
         self.known_face_encodings = []
         self.known_face_names = []
         self._detector = Video.detector_of_type(face_detector_type)
+        self._face_detect_subsample = face_detect_subsample
+        self._face_updates = face_updates
 
     @staticmethod
     def detector_of_type(type_):
@@ -177,13 +179,17 @@ class Video(object):
             began_at = time.time()
             if self.preview and not frameskip:
                 showframe = frame.copy()
+            if self._face_detect_subsample > 1:
+                scale = 1.0 / self._face_detect_subsample
+                frame = cv2.resize(frame, (0,0), fx=scale, fy=scale)
+            else:
+                scale = 1
             dets = detector(frame, 1)
-            print('detected ({:.02f} sec.)'.format(time.time() - began_at))
             shape = None
             for k, d in enumerate(dets):
                 shape = predictor(frame, d)
 
-                if nr % 2 == 0:
+                if nr % self._face_updates == 0:
                     face_encoding = face_recognition.face_encodings(frame, [(shape.rect.left(), shape.rect.top(), shape.rect.right(), shape.rect.bottom())])[0]
                     if self.known_face_encodings:
                         face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
@@ -196,10 +202,11 @@ class Video(object):
                         self.known_face_names.append("known_{}".format(len(self.known_face_names)))
 
                 if self.preview and not frameskip:
-                    cv2.rectangle(showframe, (shape.rect.left(), shape.rect.top()), (shape.rect.right(), shape.rect.bottom()), (255,0,0), 2)
-                    cv2.rectangle(showframe, (shape.rect.left(), shape.rect.bottom() - 17), (shape.rect.right(), shape.rect.bottom()), (255, 0, 0), cv2.FILLED)
+                    scale = int(1 / scale)
+                    cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.top()), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255,0,0), 2)
+                    cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.bottom() - 17), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255, 0, 0), cv2.FILLED)
                     font = cv2.FONT_HERSHEY_DUPLEX
-                    cv2.putText(showframe, known_as[k] if k in known_as else 'Unknown', (shape.rect.left() + 3, shape.rect.bottom() - 3), font, 0.5, (255, 255, 255), 1)
+                    cv2.putText(showframe, known_as[k] if k in known_as else 'Unknown', (scale*shape.rect.left() + 3, scale*shape.rect.bottom() - 3), font, 0.5, (255, 255, 255), 1)
 
             if shape is None: # Detector doesn't detect face, interpolate with the last frame
                 try:

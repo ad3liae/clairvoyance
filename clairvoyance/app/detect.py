@@ -32,7 +32,7 @@ class FaceRecognitionTask:
                 self._log.debug("Sending batch #{} (of {})".format(nr, total))
                 self._log.debug("Loading data from disk...")
                 began_at = time.time()
-                video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector)
+                video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector, face_detect_subsample=self._config.face_detect_subsample, face_updates=self._config.face_updates)
                 video.from_array(block, framerate=dec._framerate())
                 self._log.debug("Data loaded ({}, {:.02f} sec.).".format(video.data.shape, time.time() - began_at))
                 await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))

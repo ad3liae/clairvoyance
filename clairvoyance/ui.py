@@ -4,7 +4,7 @@ def shell():
     import getopt
     from clairvoyance.core import Config
 
-    opts, fns = getopt.gnu_getopt(sys.argv[1:], '', ['help', 'debug', 'show-frame', 'framerate=', 'face-updates=', 'face-detector='])
+    opts, fns = getopt.gnu_getopt(sys.argv[1:], '', ['help', 'debug', 'show-frame', 'framerate=', 'face-updates=', 'face-detector=', 'face-detect-subsample='])
     config = Config(targets=fns)
     for o,a in opts:
         if o in ['--help']:
@@ -17,6 +17,8 @@ def shell():
             config.framerate = float(a)
         if o in ['--face-updates']:
             config.face_updates = int(a)
+        if o in ['--face-detect-subsample']:
+            config.face_detect_subsample = int(a)
         if o in ['--face-detector']:
             config.face_detector = a
 
