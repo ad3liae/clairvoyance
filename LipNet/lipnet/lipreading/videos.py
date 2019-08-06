@@ -11,6 +11,7 @@ import dlib
 from lipnet.lipreading.aligns import Align
 
 import face_recognition
+from face_recognition.api import cnn_face_detector
 
 class VideoAugmenter(object):
     @staticmethod
@@ -108,7 +109,7 @@ class VideoAugmenter(object):
         return _video
 
 class Video(object):
-    def __init__(self, vtype='mouth', face_predictor_path=None, preview=False):
+    def __init__(self, vtype='mouth', face_predictor_path=None, preview=False, face_detector_type='hog'):
         if vtype == 'face' and face_predictor_path is None:
             raise AttributeError('Face video need to be accompanied with face predictor')
         self.face_predictor_path = face_predictor_path
@@ -117,6 +118,14 @@ class Video(object):
         self.framerate = None
         self.known_face_encodings = []
         self.known_face_names = []
+        self._detector = Video.detector_of_type(face_detector_type)
+
+    @staticmethod
+    def detector_of_type(type_):
+        if type_ == 'hog':
+            return dlib.get_frontal_face_detector()
+        elif type_ == 'cnn':
+            return Video.cnn_face_detector
 
     def from_frames(self, path, framerate=25):
         self.framerate = framerate
@@ -161,11 +170,15 @@ class Video(object):
         known_as = dict()
         for nr, frame in enumerate(frames):
             if frameskip:
-                frameskip = max(0, frameskip - 1)
+                if frameskip > 10:
+                    frameskip = 0
+                else:
+                    frameskip = max(0, frameskip - 1)
             began_at = time.time()
             if self.preview and not frameskip:
                 showframe = frame.copy()
             dets = detector(frame, 1)
+            print('detected ({:.02f} sec.)'.format(time.time() - began_at))
             shape = None
             for k, d in enumerate(dets):
                 shape = predictor(frame, d)
@@ -241,12 +254,16 @@ class Video(object):
         return resized_img[mouth_t:mouth_b, mouth_l:mouth_r]
 
     def process_frames_face(self, frames):
-        detector = dlib.get_frontal_face_detector()
+        detector = self._detector
         predictor = dlib.shape_predictor(self.face_predictor_path)
         mouth_frames = self.get_frames_mouth(detector, predictor, frames)
         self.face = np.array(frames)
         self.mouth = np.array(mouth_frames)
         self.set_data(mouth_frames)
+
+    @staticmethod
+    def cnn_face_detector(*args, **kwargs):
+        return (x.rect for x in cnn_face_detector(*args, **kwargs))
 
     def process_frames_mouth(self, frames):
         self.face = np.array(frames)
