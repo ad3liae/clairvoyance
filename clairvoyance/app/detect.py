@@ -116,6 +116,7 @@ class FaceDetector:
         frameskip = 0
         mouth_frames = []
         known_as = dict()
+        unknowns = 0
         for nr, frame in enumerate(frames):
             if nr % self._face_updates == 0:
                 known_as.clear()
@@ -153,7 +154,8 @@ class FaceDetector:
                     try:
                         face_id = known_as[k]
                     except KeyError:
-                        face_id = 'Unknown'
+                        face_id = 'UNK{}'.format(unknowns)
+                        unknowns = unknowns + 1
                     scale = int(1 / scale)
                     cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.top()), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255,0,0), 2)
                     cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.bottom() - 17), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255, 0, 0), cv2.FILLED)
