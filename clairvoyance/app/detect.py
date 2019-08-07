@@ -38,12 +38,11 @@ class FaceRecognitionTask:
             total = dec.num_blocks()
             for nr,block in dec.decoded_blocks():
                 self._log.debug("Sending batch #{} (of {})".format(nr, total))
-                self._log.debug("Loading data from disk...")
                 began_at = time.time()
-                video = Video(vtype='face', face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector, face_detect_subsample=self._config.face_detect_subsample, face_updates=self._config.face_updates)
-                video.from_array(block, framerate=dec._framerate())
-                self._log.debug("Data loaded ({}, {:.02f} sec.).".format(video.data.shape, time.time() - began_at))
-                await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
+                faces = [x for x in FaceDetector(face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector, face_detect_subsample=self._config.face_detect_subsample, face_updates=self._config.face_updates).do(block, framerate=dec._framerate())]
+                self._log.debug("Faces detected: {} ({:.02f} sec.).".format(len(faces), time.time() - began_at))
+                for video in faces:
+                    await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity='Speaker #0'))
         if self._config.show_frame:
             cv2.destroyAllWindows()
 
@@ -71,17 +70,16 @@ class VideoDecoder:
         for nr in range(self.num_blocks()):
             yield nr, np.array(list(itertools.islice(self._gen, self._blocksize)))
 
-class Video(object):
-    def __init__(self, vtype='mouth', face_predictor_path=None, preview=False, face_detector_type='hog', face_detect_subsample=2, face_updates=5):
-        if vtype == 'face' and face_predictor_path is None:
+class FaceDetector:
+    def __init__(self, face_predictor_path=None, preview=False, face_detector_type='hog', face_detect_subsample=2, face_updates=5):
+        if face_predictor_path is None:
             raise AttributeError('Face video need to be accompanied with face predictor')
         self.face_predictor_path = face_predictor_path
-        self.vtype = vtype
         self.preview = preview
         self.framerate = None
         self.known_face_encodings = []
         self.known_face_names = []
-        self._detector = Video.detector_of_type(face_detector_type)
+        self._detector = FaceDetector.detector_of_type(face_detector_type)
         self._face_detect_subsample = face_detect_subsample
         self._face_updates = face_updates
 
@@ -92,31 +90,16 @@ class Video(object):
         elif type_ == 'cnn':
             return Video.cnn_face_detector
 
-    def from_frames(self, path, framerate=25):
+    def do(self, frames, framerate=25):
         self.framerate = framerate
-        frames_path = sorted([os.path.join(path, x) for x in os.listdir(path)])
-        frames = [ndimage.imread(frame_path) for frame_path in frames_path]
-        self.handle_type(frames)
-        return self
-
-    def from_video(self, path):
-        self.framerate = self.get_frame_rate(path)
-        frames = self.get_video_frames(path)
-        self.handle_type(frames)
-        return self
-
-    def from_array(self, frames, framerate=25):
-        self.framerate = framerate
-        self.handle_type(frames)
-        return self
-
-    def handle_type(self, frames):
-        if self.vtype == 'mouth':
-            self.process_frames_mouth(frames)
-        elif self.vtype == 'face':
-            self.process_frames_face(frames)
-        else:
-            raise Exception('Video type not found')
+        detector = self._detector
+        predictor = dlib.shape_predictor(self.face_predictor_path)
+        mouth_frames = self.get_frames_mouth(detector, predictor, frames)
+        v = Video(vtype='face', face_predictor_path=self.face_predictor_path)
+        v.face = np.array(frames)
+        v.mouth = np.array(mouth_frames)
+        v.set_data(mouth_frames)
+        yield v
 
     def get_frames_mouth(self, detector, predictor, frames):
         return self.mouth_frames_of_a_face(detector, predictor, frames)
@@ -224,39 +207,11 @@ class Video(object):
 
         return imresize(resized_img[mouth_t:mouth_b, mouth_l:mouth_r], (100, 50))
 
-
-    def process_frames_face(self, frames):
-        detector = self._detector
-        predictor = dlib.shape_predictor(self.face_predictor_path)
-        mouth_frames = self.get_frames_mouth(detector, predictor, frames)
-        self.face = np.array(frames)
-        self.mouth = np.array(mouth_frames)
-        self.set_data(mouth_frames)
-
     @staticmethod
     def cnn_face_detector(*args, **kwargs):
         return (x.rect for x in cnn_face_detector(*args, **kwargs))
-
-    def process_frames_mouth(self, frames):
-        self.face = np.array(frames)
-        self.mouth = np.array(frames)
-        self.set_data(frames)
 
     def get_video_frames(self, path):
         videogen = skvideo.io.vreader(path)
         frames = np.array([frame for frame in videogen])
         return frames
-
-    def set_data(self, frames):
-        data_frames = []
-        for frame in frames:
-            frame = frame.swapaxes(0,1) # swap width and height to form format W x H x C
-            if len(frame.shape) < 3:
-                frame = np.array([frame]).swapaxes(0,2).swapaxes(0,1) # Add grayscale channel
-            data_frames.append(frame)
-        frames_n = len(data_frames)
-        data_frames = np.array(data_frames) # T x W x H x C
-        if K.image_data_format() == 'channels_first':
-            data_frames = np.rollaxis(data_frames, 3) # C x T x W x H
-        self.data = data_frames
-        self.length = frames_n
