@@ -117,6 +117,8 @@ class FaceDetector:
         mouth_frames = []
         known_as = dict()
         for nr, frame in enumerate(frames):
+            if nr % self._face_updates == 0:
+                known_as.clear()
             if frameskip:
                 if frameskip > 10:
                     frameskip = 0
@@ -142,17 +144,21 @@ class FaceDetector:
                         best_match_index = np.argmin(face_distances)
                         if face_distances[best_match_index] <= 0.6:
                             known_as[k] = self.known_face_names[best_match_index]
-
                     if k not in known_as:
+                        known_as[k] = "known_{}".format(len(self.known_face_names))
                         self.known_face_encodings.append(face_encoding)
-                        self.known_face_names.append("known_{}".format(len(self.known_face_names)))
+                        self.known_face_names.append(known_as[k])
 
                 if self.preview and not frameskip:
+                    try:
+                        face_id = known_as[k]
+                    except KeyError:
+                        face_id = 'Unknown'
                     scale = int(1 / scale)
                     cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.top()), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255,0,0), 2)
                     cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.bottom() - 17), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255, 0, 0), cv2.FILLED)
                     font = cv2.FONT_HERSHEY_DUPLEX
-                    cv2.putText(showframe, known_as[k] if k in known_as else 'Unknown', (scale*shape.rect.left() + 3, scale*shape.rect.bottom() - 3), font, 0.5, (255, 255, 255), 1)
+                    cv2.putText(showframe, face_id, (scale*shape.rect.left() + 3, scale*shape.rect.bottom() - 3), font, 0.5, (255, 255, 255), 1)
 
             if shape is None: # Detector doesn't detect face, interpolate with the last frame
                 try:
