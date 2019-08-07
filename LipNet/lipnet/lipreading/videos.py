@@ -210,11 +210,15 @@ class Video(object):
 
             if shape is None: # Detector doesn't detect face, interpolate with the last frame
                 try:
+                    print('pad1:', mouth_frames[-1].shape, mouth_frames[-1].dtype)
                     mouth_frames.append(mouth_frames[-1])
                 except IndexError:
-                    raise NotImplementedError()
+                    # XXX
+                    mouth_frames.append(np.zeros((50,100,3), dtype='uint8'))
+                    print('pad2:', mouth_frames[-1].shape, mouth_frames[-1].dtype)
             else:
                 mouth_frames.append(self.mouth_frame_of_face_shaped(shape, frame))
+
             elapsed = time.time() - began_at
             if self.preview and not frameskip:
                 deadline = 1000/self.framerate

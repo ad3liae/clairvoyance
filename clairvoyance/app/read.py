@@ -67,6 +67,8 @@ class LipReadingTask:
                 else:
                     frames_n, img_w, img_h, img_c = speaker.video.data.shape
 
+                print(speaker.video.data.shape)
+
                 assert (self.IMAGE_WIDTH, self.IMAGE_HEIGHT, self.IMAGE_CHANNELS) == (img_w, img_h, img_c)
 
                 X_data       = np.array([speaker.video.data]).astype(np.float32) / 255
