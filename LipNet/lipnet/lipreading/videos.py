@@ -262,7 +262,7 @@ class Video(object):
         mouth_t = int(mouth_centroid_norm[1] - MOUTH_HEIGHT / 2)
         mouth_b = int(mouth_centroid_norm[1] + MOUTH_HEIGHT / 2)
 
-        return resized_img[mouth_t:mouth_b, mouth_l:mouth_r]
+        return imresize(resized_img[mouth_t:mouth_b, mouth_l:mouth_r], (100, 50))
 
     def process_frames_face(self, frames):
         detector = self._detector
