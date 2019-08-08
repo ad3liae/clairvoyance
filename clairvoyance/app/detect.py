@@ -156,10 +156,15 @@ class FaceDetector:
                     face_name = 'UNK{}'.format(unknowns) # ID
                     unknowns = unknowns + 1
                     self._log.debug('{}: {}: detected'.format(face_name, nr))
-                try:
-                    mouthes[face_name].append(dict(nr=nr, frame=self._mouth_frame_of_face_shaped(shape, frame)))
-                except KeyError:
-                    mouthes[face_name] = [dict(nr=nr, frame=self._mouth_frame_of_face_shaped(shape, frame))]
+
+                mouth_frame = self._mouth_frame_of_face_shaped(shape, frame)
+                if mouth_frame is not None:
+                    try:
+                        mouthes[face_name].append(dict(nr=nr, frame=mouth_frame))
+                    except KeyError:
+                        mouthes[face_name] = [dict(nr=nr, frame=mouth_frame)]
+                else:
+                    self._log.debug('{}: {}: dropping due to wild centroids'.format(face_name, nr))
 
                 if self._preview and not frameskip:
                     scale = int(1 / scale)
@@ -217,11 +222,12 @@ class FaceDetector:
         if normalize_ratio is None:
             mouth_left = np.min(np_mouth_points[:, :-1]) * (1.0 - HORIZONTAL_PAD)
             mouth_right = np.max(np_mouth_points[:, :-1]) * (1.0 + HORIZONTAL_PAD)
-
-            normalize_ratio = MOUTH_WIDTH / float(mouth_right - mouth_left)
-
-        new_img_shape = (int(frame.shape[0] * normalize_ratio), int(frame.shape[1] * normalize_ratio))
-        resized_img = imresize(frame, new_img_shape)
+            mouth_top = np.min(np_mouth_points[:, 1:])
+            mouth_bottom = np.max(np_mouth_points[:, 1:])
+            if (mouth_right - mouth_left) > (mouth_bottom - mouth_top):
+                normalize_ratio = MOUTH_WIDTH / float(mouth_right - mouth_left)
+            else:
+                normalize_ratio = MOUTH_HEIGHT / float(mouth_bottom - mouth_top)
 
         mouth_centroid_norm = mouth_centroid * normalize_ratio
 
@@ -230,7 +236,15 @@ class FaceDetector:
         mouth_t = int(mouth_centroid_norm[1] - MOUTH_HEIGHT / 2)
         mouth_b = int(mouth_centroid_norm[1] + MOUTH_HEIGHT / 2)
 
-        return imresize(resized_img[mouth_t:mouth_b, mouth_l:mouth_r], (100, 50))
+        frame_rect = np.array([0, frame.shape[1], 0, frame.shape[0]])
+        self._log.debug('mouth_frame={}, frame_rect={}'.format(np.array([mouth_l, mouth_r, mouth_t, mouth_b]), frame_rect))
+
+        if not any([mouth_l < frame_rect[0], mouth_r > frame_rect[1], mouth_t < frame_rect[2], mouth_b > frame_rect[3]]):
+            new_img_shape = (int(frame.shape[0] * normalize_ratio), int(frame.shape[1] * normalize_ratio))
+            resized_img = imresize(frame, new_img_shape)
+            return imresize(resized_img[mouth_t:mouth_b, mouth_l:mouth_r], (50, 100))
+        else:
+            return None
 
     @staticmethod
     def _cnn_face_detector(*args, **kwargs):
