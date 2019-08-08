@@ -15,3 +15,4 @@ class Config:
     face_updates = attr.ib(default=5)
     face_detector = attr.ib(default='hog')
     face_detect_subsample = attr.ib(default=2)
+    face_detect_area = attr.ib(default=None)
