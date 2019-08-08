@@ -237,7 +237,6 @@ class FaceDetector:
         mouth_b = int(mouth_centroid_norm[1] + MOUTH_HEIGHT / 2)
 
         frame_rect = np.array([0, frame.shape[1], 0, frame.shape[0]])
-        self._log.debug('mouth_frame={}, frame_rect={}'.format(np.array([mouth_l, mouth_r, mouth_t, mouth_b]), frame_rect))
 
         if not any([mouth_l < frame_rect[0], mouth_r > frame_rect[1], mouth_t < frame_rect[2], mouth_b > frame_rect[3]]):
             new_img_shape = (int(frame.shape[0] * normalize_ratio), int(frame.shape[1] * normalize_ratio))
