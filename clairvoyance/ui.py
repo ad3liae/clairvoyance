@@ -2,9 +2,10 @@ def shell():
     import sys
     import logging
     import getopt
+    import numpy as np
     from clairvoyance.core import Config
 
-    opts, fns = getopt.gnu_getopt(sys.argv[1:], '', ['help', 'debug', 'show-frame', 'framerate=', 'face-updates=', 'face-detector=', 'face-detect-subsample='])
+    opts, fns = getopt.gnu_getopt(sys.argv[1:], '', ['help', 'debug', 'show-frame', 'framerate=', 'face-updates=', 'face-detector=', 'face-detect-subsample=', 'face-detect-area='])
     config = Config(targets=fns)
     for o,a in opts:
         if o in ['--help']:
@@ -19,6 +20,8 @@ def shell():
             config.face_updates = int(a)
         if o in ['--face-detect-subsample']:
             config.face_detect_subsample = int(a)
+        if o in ['--face-detect-area']:
+            config.face_detect_area = np.array([int(x) for x in a.split(',', maxsplit=4)])
         if o in ['--face-detector']:
             config.face_detector = a
 

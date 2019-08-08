@@ -39,7 +39,7 @@ class FaceRecognitionTask:
             for nr,block in dec.decoded_blocks():
                 self._log.debug("Sending batch #{} (of {})".format(nr, total))
                 began_at = time.time()
-                faces = [x for x in FaceDetector(face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector, face_detect_subsample=self._config.face_detect_subsample, face_updates=self._config.face_updates).do(block, framerate=dec._framerate())]
+                faces = [x for x in FaceDetector(face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector, face_detect_subsample=self._config.face_detect_subsample, face_updates=self._config.face_updates, face_detect_area=self._config.face_detect_area).do(block, framerate=dec._framerate())]
                 self._log.debug("Faces detected: {} ({:.02f} sec.).".format(len(faces), time.time() - began_at))
                 for name,video in faces:
                     await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity=name))
@@ -71,7 +71,7 @@ class VideoDecoder:
             yield nr, np.array(list(itertools.islice(self._gen, self._blocksize)))
 
 class FaceDetector:
-    def __init__(self, face_predictor_path=None, preview=False, face_detector_type='hog', face_detect_subsample=2, face_updates=5):
+    def __init__(self, face_predictor_path=None, preview=False, face_detector_type='hog', face_detect_subsample=2, face_updates=5, face_detect_area=None):
         if face_predictor_path is None:
             raise AttributeError('Face video need to be accompanied with face predictor')
         self._face_predictor_path = face_predictor_path
@@ -82,7 +82,12 @@ class FaceDetector:
         self._detector = FaceDetector.detector_of_type(face_detector_type)
         self._face_detect_subsample = face_detect_subsample
         self._face_updates = face_updates
+        if face_detect_area is not None:
+            self._face_detect_area = face_detect_area.astype(int)
+        else:
+            self._face_detect_area = None
         self._log = logging.getLogger(self.__class__.__name__)
+
 
     @staticmethod
     def detector_of_type(type_):
@@ -107,6 +112,7 @@ class FaceDetector:
         known_as = dict()
         unknowns = 0
         mouthes = dict()
+        scale = 1.0 / self._face_detect_subsample
 
         for nr, frame in enumerate(frames):
             if nr % self._face_updates == 0:
@@ -119,11 +125,10 @@ class FaceDetector:
             began_at = time.time()
             if self._preview and not frameskip:
                 showframe = frame.copy()
+            if self._face_detect_area is not None:
+                frame = frame[self._face_detect_area[1]:self._face_detect_area[3], self._face_detect_area[0]:self._face_detect_area[2]]
             if self._face_detect_subsample > 1:
-                scale = 1.0 / self._face_detect_subsample
                 frame = cv2.resize(frame, (0,0), fx=scale, fy=scale)
-            else:
-                scale = 1
             dets = detector(frame, 1)
 
             for k, d in enumerate(dets):
@@ -167,14 +172,23 @@ class FaceDetector:
                     self._log.debug('{}: {}: dropping due to wild centroids'.format(face_name, nr))
 
                 if self._preview and not frameskip:
-                    scale = int(1 / scale)
-                    cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.top()), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255,0,0), 2)
-                    cv2.rectangle(showframe, (scale*shape.rect.left(), scale*shape.rect.bottom() - 17), (scale*shape.rect.right(), scale*shape.rect.bottom()), (255, 0, 0), cv2.FILLED)
+                    showshape = np.array([shape.rect.left(), shape.rect.top(), shape.rect.right(), shape.rect.bottom()])
+                    if self._face_detect_subsample > 1:
+                        showshape = showshape * (1 / scale)
+                    if self._face_detect_area is not None:
+                        showshape = showshape + np.array([self._face_detect_area[0], self._face_detect_area[1], self._face_detect_area[0], self._face_detect_area[1]])
+
+                    showshape = showshape.astype(int)
+
+                    cv2.rectangle(showframe, tuple(showshape[0:2]), tuple(showshape[2:4]), (255,0,0), 2)
+                    cv2.rectangle(showframe, tuple([showshape[0], showshape[3] - 17]), tuple(showshape[2:4]), (255, 0, 0), cv2.FILLED)
                     font = cv2.FONT_HERSHEY_DUPLEX
-                    cv2.putText(showframe, face_name, (scale*shape.rect.left() + 3, scale*shape.rect.bottom() - 3), font, 0.5, (255, 255, 255), 1)
+                    cv2.putText(showframe, face_name, tuple([showshape[0] + 3, showshape[3] - 3]), font, 0.5, (255, 255, 255), 1)
 
             elapsed = time.time() - began_at
             if self._preview and not frameskip:
+                if self._face_detect_area is not None:
+                    cv2.rectangle(showframe, tuple(self._face_detect_area[0:2].astype(int)), tuple(self._face_detect_area[2:4].astype(int)), (0,255,0), 2)
                 deadline = 1000/self._framerate
                 slack = int(deadline - elapsed*1000)
                 if slack < 0:
