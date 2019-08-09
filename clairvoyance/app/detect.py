@@ -113,10 +113,12 @@ class FaceDetector:
         unknowns = 0
         mouthes = dict()
         scale = 1.0 / self._face_detect_subsample
+        mapped = set()
 
         for nr, frame in enumerate(frames):
             if nr % self._face_updates == 0:
                 known_as.clear()
+                mapped.clear()
             if frameskip:
                 if frameskip > 10:
                     frameskip = 0
@@ -136,13 +138,16 @@ class FaceDetector:
 
                 if nr % self._face_updates == 0:
                     face_encoding = face_recognition.face_encodings(frame, [(shape.rect.left(), shape.rect.top(), shape.rect.right(), shape.rect.bottom())])[0]
+                    face_key = face_encoding.tobytes()
                     if self._known_face_encodings:
                         face_distances = face_recognition.face_distance(self._known_face_encodings, face_encoding)
-                        best_match_index = np.argmin(face_distances)
-                        if face_distances[best_match_index] <= 0.6:
-                            face_name = self._known_face_names[best_match_index]
-                            known_as[k] = face_name
-                            self._log.debug('{}: {}: recognized'.format(face_name, nr))
+                        for index, dist in enumerate([x for x in sorted(face_distances) if x <= 0.6]):
+                            face_name = self._known_face_names[index]
+                            if face_name not in mapped:
+                                known_as[k] = face_name
+                                mapped.add(face_name)
+                                self._log.debug('{}: {}: recognized'.format(face_name, nr))
+                                break
                     if k not in known_as:
                         face_id = 'UNK{}'.format(k)
                         face_name = 'known_{}'.format(len(self._known_face_names))
