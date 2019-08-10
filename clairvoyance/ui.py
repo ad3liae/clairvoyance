@@ -36,7 +36,7 @@ def help():
     import sys
 
     def opt(o, d):
-        return r'  {{:{0}s}}{{}}'.format(12).format(o, d)
+        return r'  {{:{0}s}}{{}}'.format(24).format(o, d)
 
     return '\n'.join([
         version(),
@@ -47,6 +47,12 @@ def help():
         '',
         opt('--help', 'Shows this message'),
         opt('--debug', 'Shows debug message'),
+        opt('--show-frame', 'Shows the frames as processed'),
+        opt('--framerate', 'Sets framerate'),
+        opt('--face-updates', 'Sets face updates interval'),
+        opt('--face-detect-subsample', 'Sets the subsampling factor of facial detection'),
+        opt('--face-detect-area', 'Sets the facial detection area'),
+        opt('--face-detector', 'Sets face detector implementation'),
     ])
 
 def version():
