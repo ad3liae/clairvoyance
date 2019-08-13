@@ -1,6 +1,8 @@
 attrs
 face_recognition
 opencv-python
-
-# LipNet
--e LipNet
+numpy==1.12.1
+scipy==0.19.0
+tensorflow==1.0.0
+sk-video==1.1.10
+dlib==19.17.0

@@ -12,16 +12,11 @@ Quickstart
 
 You need: Python 3.6, ffmpeg (with ffprobe)
 
-*NB: Currently it requires to be installed in development mode.*
-
 .. code-block:: shell
 
   $ python3.6 -m venv ~/ve/cv
-  $ git clone https://github.com/monolithworks/clairvoyance wc
-  $ cd wc
-  $ ~/ve/cv/bin/pip install -e .
-  $ ~/ve/cv/bin/pip install -r requirements.txt
-
+  $ ~/ve/cv/bin/pip git+https://github.com/monolithworks/clairvoyance
+  $ ~/ve/cv/bin/pip git+https://github.com/monolithworks/clairvoyance-lipnet
   $ ~/ve/cv/bin/clairvoyance --debug --show-frame --face-detect-subsample=1 /path/to/some/movie.mp4
   ...
   DEBUG:FaceDetector:known_0: 70: recognized
