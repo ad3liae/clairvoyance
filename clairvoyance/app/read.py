@@ -22,7 +22,7 @@ class LipReadingTask:
         # XXX insecure
         import importlib
         try:
-            mod = importlib.import_module('clairvoyance.{}'.format(reader))
+            mod = importlib.import_module('clairvoyance_{}'.format(reader))
         except ImportError:
             raise ValueError('unknown lip reader: {}'.format(reader))
         try:

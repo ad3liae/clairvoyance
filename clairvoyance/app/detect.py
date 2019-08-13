@@ -22,8 +22,10 @@ import dlib
 import face_recognition
 from face_recognition.api import cnn_face_detector
 
+import pkg_resources
+
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-FACE_PREDICTOR_PATH = os.path.join(CURRENT_PATH,'..','..','LipNet','common','predictors','shape_predictor_68_face_landmarks.dat')
+FACE_PREDICTOR_PATH = pkg_resources.resource_filename(__name__, os.path.join('..','libs','shape_predictor_68_face_landmarks.dat'))
 
 class FaceRecognitionTask:
     def __init__(self, config, q):
@@ -94,7 +96,7 @@ class FaceDetector:
         # XXX insecure
         import importlib
         try:
-            return importlib.import_module('clairvoyance.{}'.format(reader)).Video
+            return importlib.import_module('clairvoyance_{}'.format(reader)).Video
         except ImportError:
             raise ValueError('unknown lip reader: {}'.format(reader))
         except AttributeError:

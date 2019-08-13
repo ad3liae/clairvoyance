@@ -20,12 +20,12 @@ metadata = dict(
 )
 
 README = open('README.rst').read()
-requirements = [x.strip() for x in open('requirements.txt').read()]
+requirements = [x.strip() for x in open('requirements.txt')]
 
 setup(
   long_description=README,
   packages=find_packages(),
-  package_data={'clairvoyance':[]},
+  package_data={'clairvoyance':['libs/**']},
   include_package_data=True,
   zip_safe=False,
   install_requires=requirements,
