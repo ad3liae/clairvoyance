@@ -11,7 +11,6 @@ import logging
 import cv2
 import numpy as np
 import skvideo.io
-from lipnet.lipreading.videos import Video
 
 from clairvoyance.core import Speaker
 
@@ -23,8 +22,10 @@ import dlib
 import face_recognition
 from face_recognition.api import cnn_face_detector
 
+import pkg_resources
+
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-FACE_PREDICTOR_PATH = os.path.join(CURRENT_PATH,'..','..','LipNet','common','predictors','shape_predictor_68_face_landmarks.dat')
+FACE_PREDICTOR_PATH = pkg_resources.resource_filename(__name__, os.path.join('..','libs','shape_predictor_68_face_landmarks.dat'))
 
 class FaceRecognitionTask:
     def __init__(self, config, q):
@@ -39,7 +40,7 @@ class FaceRecognitionTask:
             for nr,block in dec.decoded_blocks():
                 self._log.debug("Sending batch #{} (of {})".format(nr, total))
                 began_at = time.time()
-                faces = [x for x in FaceDetector(face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector, face_detect_subsample=self._config.face_detect_subsample, face_updates=self._config.face_updates, face_detect_area=self._config.face_detect_area).do(block, framerate=dec._framerate())]
+                faces = [x for x in FaceDetector(face_predictor_path=FACE_PREDICTOR_PATH, preview=self._config.show_frame, face_detector_type=self._config.face_detector, face_detect_subsample=self._config.face_detect_subsample, face_updates=self._config.face_updates, face_detect_area=self._config.face_detect_area, reader=self._config.reader).do(block, framerate=dec._framerate())]
                 self._log.debug("Faces detected: {} ({:.02f} sec.).".format(len(faces), time.time() - began_at))
                 for name,video in faces:
                     await asyncio.get_event_loop().run_in_executor(None, self._q.put, Speaker(video=video, identity=name))
@@ -71,7 +72,7 @@ class VideoDecoder:
             yield nr, np.array(list(itertools.islice(self._gen, self._blocksize)))
 
 class FaceDetector:
-    def __init__(self, face_predictor_path=None, preview=False, face_detector_type='hog', face_detect_subsample=2, face_updates=5, face_detect_area=None):
+    def __init__(self, face_predictor_path=None, preview=False, face_detector_type='hog', face_detect_subsample=2, face_updates=5, face_detect_area=None, reader='lipnet'):
         if face_predictor_path is None:
             raise AttributeError('Face video need to be accompanied with face predictor')
         self._face_predictor_path = face_predictor_path
@@ -88,6 +89,18 @@ class FaceDetector:
             self._face_detect_area = None
         self._log = logging.getLogger(self.__class__.__name__)
 
+        self._video_cls = FaceDetector._video_class_for_reader(reader=reader)
+
+    @staticmethod
+    def _video_class_for_reader(reader):
+        # XXX insecure
+        import importlib
+        try:
+            return importlib.import_module('clairvoyance_{}'.format(reader)).Video
+        except ImportError:
+            raise ValueError('unknown lip reader: {}'.format(reader))
+        except AttributeError:
+            raise ValueError('invalid lip reader: {} does not define required Video class'.format(reader))
 
     @staticmethod
     def detector_of_type(type_):
@@ -101,7 +114,7 @@ class FaceDetector:
         detector = self._detector
         predictor = dlib.shape_predictor(self._face_predictor_path)
         for name, mouth_frames in self._mouth_frames_of_faces(detector, predictor, frames).items():
-            v = Video(vtype='mouth')
+            v = self._video_cls(vtype='mouth')
             v.face = np.array(mouth_frames)
             v.mouth = np.array(mouth_frames)
             v.set_data(mouth_frames)

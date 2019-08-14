@@ -20,36 +20,16 @@ metadata = dict(
 )
 
 README = open('README.rst').read()
+requirements = [x.strip() for x in open('requirements.txt')]
 
 setup(
   long_description=README,
   packages=find_packages(),
-  package_data={'clairvoyance':[]},
+  package_data={'clairvoyance':['libs/**']},
   include_package_data=True,
   zip_safe=False,
-  install_requires=[
-      'attrs',
-      'face_recognition',
-      'opencv-python',
-
-      # LipNet
-      'Keras==2.0.2',
-      'editdistance==0.3.1',
-      'h5py==2.6.0',
-      'matplotlib==2.0.0',
-      'numpy==1.12.1',
-      'python-dateutil==2.6.0',
-      'scipy==0.19.0',
-      'Pillow==4.1.0',
-      'tensorflow==1.0.0',
-      'Theano==0.9.0',
-      'nltk==3.2.2',
-      'sk-video==1.1.10',
-      'dlib==19.17.0'
-  ],
-  setup_requires=[
-    "wheel",
-  ],
+  install_requires=requirements,
+  setup_requires=["wheel"],
   entry_points = {'console_scripts':['clairvoyance = clairvoyance.ui:shell']},
   **metadata
 )

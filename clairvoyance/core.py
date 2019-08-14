@@ -1,3 +1,4 @@
+import abc
 import attr
 
 @attr.s
@@ -16,3 +17,10 @@ class Config:
     face_detector = attr.ib(default='hog')
     face_detect_subsample = attr.ib(default=2)
     face_detect_area = attr.ib(default=None)
+    reader = attr.ib(default='lipnet')
+
+class Reader(abc.ABC):
+    def warmup(self):
+        pass
+    def do(self, frames):
+        pass
